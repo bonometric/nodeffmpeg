@@ -95,6 +95,7 @@ async function startStream(alias, rtspUri) {
 
           streams.push(resultObj);
         } else {
+          existingStream.process = proc;
           existingStream.running = true;
         }
         storage.setItem('persistedStreams', streams);

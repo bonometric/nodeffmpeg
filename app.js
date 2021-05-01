@@ -61,7 +61,7 @@ async function startStream(alias, rtspUri) {
 
     const gaze = new Gaze('**/*');
     gaze.on('added', path => {
-      if (path.includes('streams/' + alias + '/stream0.ts')) {
+      if (path.includes('streams/' + alias + '/stream.M3U8')) {
         console.log('stream file created!')
         gaze.close();
         //

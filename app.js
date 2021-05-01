@@ -53,22 +53,16 @@ async function startStream(alias, rtspUri) {
     spawn('rm', ["-rf", "public/streams/" + alias]);
     spawn('mkdir', ["public/streams/" + alias]);
     // console.log('x')
-    //watch
-    var p = new Promise((resolve, reject) => {
-      console.log('creating file watched for '+alias)
-      var c = chokidar.watch('public/streams/' + alias + '/stream0.ts').on('add', (event) => {
-        resolve();
-        console.log('removing file watcher for '+alias)
-        c.unwatch('public/streams/' + alias + '/stream0.ts');
-        
-        streamUri = 'streams/' + alias + '/stream.M3U8';
-      });
-    })
-    readyPromises.push(p);
-    // });
 
-    //success - async return ref to the process so it can be killed later if requested
-    Promise.all(readyPromises).then(() => {
+    //watch
+    console.log('creating file watcher for ' + alias)
+    
+    var c = chokidar.watch('public/streams/' + alias + '/stream0.ts').on('add', (event) => {
+      
+      console.log('removing file watcher for ' + alias)
+      c.unwatch('public/streams/' + alias + '/stream0.ts');
+      streamUri = 'streams/' + alias + '/stream.M3U8';
+      //
       console.log('stream ready!')
       var resultObj = {
         process: proc,
@@ -83,8 +77,10 @@ async function startStream(alias, rtspUri) {
         existingStream.running = true;
       }
       resolveTop(resultObj);
-    })
+    });
+    // });
 
+   
     //ffmpeg
     var cmd = 'ffmpeg';
     var args = [

@@ -135,7 +135,7 @@ async function startStream(alias, rtspUri) {
 }
 
 function stopStream(alias, remove) {
-  spawn('rm', ["-rf", "./public/streams/" + alias]);
+  spawn('rm', ["-rf", "public/streams/" + alias]);
 
   var process;
   var index;

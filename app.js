@@ -55,6 +55,7 @@ async function startStream(alias, rtspUri) {
     // console.log('x')
     //watch
     var p = new Promise((resolve, reject) => {
+      console.log('creating file watched for '+alias)
       var c = chokidar.watch('public/streams/' + alias + '/stream0.ts').on('add', (event) => {
         resolve();
         console.log('removing file watcher for '+alias)

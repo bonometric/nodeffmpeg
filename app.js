@@ -1,4 +1,6 @@
 const chokidar = require('chokidar');
+const Gaze = require('gaze').Gaze;
+
 const bodyParser = require("body-parser");
 const ws = require('ws');
 
@@ -57,33 +59,31 @@ async function startStream(alias, rtspUri) {
     //watch
     console.log('creating file watcher for ' + alias)
 
-    var c = chokidar.watch('public/streams/' + alias + '/stream0.ts', {
-      awaitWriteFinish: {
-        stabilityThreshold: 2000,
-        pollInterval: 100
-      },
-    }).on('add', (event) => {
+    const gaze = new Gaze('**/*');
+    gaze.on('added', path => {
+      if (path.includes('streams/' + alias + '/stream0.ts')) {
+        console.log('stream file created!')
+        gaze.close();
+        //
+        streamUri = 'streams/' + alias + '/stream.M3U8';
+        //
+        console.log('stream ready!')
+        var resultObj = {
+          process: proc,
+          alias: alias,
+          rtspUri: rtspUri,
+          streamUri: streamUri,
+          running: true
+        }
+        if (!existingStream) {
+          streams.push(resultObj);
+        } else {
+          existingStream.running = true;
+        }
+        resolveTop(resultObj);
+      }
+    })
 
-      console.log('removing file watcher for ' + alias)
-      c.unwatch('public/streams/' + alias + '/stream0.ts');
-      streamUri = 'streams/' + alias + '/stream.M3U8';
-      //
-      console.log('stream ready!')
-      var resultObj = {
-        process: proc,
-        alias: alias,
-        rtspUri: rtspUri,
-        streamUri: streamUri,
-        running: true
-      }
-      if (!existingStream) {
-        streams.push(resultObj);
-      } else {
-        existingStream.running = true;
-      }
-      resolveTop(resultObj);
-    });
-    // });
 
 
     //ffmpeg

@@ -56,9 +56,14 @@ async function startStream(alias, rtspUri) {
 
     //watch
     console.log('creating file watcher for ' + alias)
-    
-    var c = chokidar.watch('public/streams/' + alias + '/stream0.ts').on('add', (event) => {
-      
+
+    var c = chokidar.watch('public/streams/' + alias + '/stream0.ts', {
+      awaitWriteFinish: {
+        stabilityThreshold: 2000,
+        pollInterval: 100
+      },
+    }).on('add', (event) => {
+
       console.log('removing file watcher for ' + alias)
       c.unwatch('public/streams/' + alias + '/stream0.ts');
       streamUri = 'streams/' + alias + '/stream.M3U8';
@@ -80,7 +85,7 @@ async function startStream(alias, rtspUri) {
     });
     // });
 
-   
+
     //ffmpeg
     var cmd = 'ffmpeg';
     var args = [

@@ -210,7 +210,7 @@ app.post('/stop', async (request, response) => {
   response.json({});
 });
 
-spawn('rm', ["-rf", "./public/streams/"])
+spawn('rm', ["-rf", "public/streams"])
 
 
 // start();

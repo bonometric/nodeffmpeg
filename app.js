@@ -42,7 +42,12 @@ async function startStream(alias, rtspUri) {
       const stream = streams[i];
       if (stream.alias == alias) {
         existingStream = stream;
+        existingStream.running = null;
         rtspUri = stream.rtspUri;
+        //broadcast existing stream is starting
+        socketServer.clients.forEach((client) => {
+          client.send(JSON.stringify(getStrippedStreams()))
+        })
         break;
       }
     }
@@ -248,8 +253,8 @@ socketServer.on('connection', (socketClient) => {
     client.send(JSON.stringify(getStrippedStreams()))
   })
   socketClient.on('close', (socketClient) => {
-    console.log('closed');
-    console.log('Number of clients: ', socketServer.clients.size);
+    // console.log('closed');
+    // console.log('Number of clients: ', socketServer.clients.size);
   });
 });
 

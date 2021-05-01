@@ -1,5 +1,6 @@
 const chokidar = require('chokidar');
 const Gaze = require('gaze').Gaze;
+const storage = require('node-persist');
 
 const bodyParser = require("body-parser");
 const ws = require('ws');
@@ -32,6 +33,18 @@ app.use(bodyParser.json());
 var router = express.Router();
 
 var streams = [];
+var persistedStreams = [];
+
+async function broadcastStreamUpdates(){
+  socketServer.clients.forEach((client) => {
+    client.send(JSON.stringify(getStrippedStreams()))
+  })
+}
+
+async function removeStream(stream) {
+
+  await storage.setItem('persistedStreams', streams);
+}
 
 async function startStream(alias, rtspUri) {
 
@@ -45,9 +58,7 @@ async function startStream(alias, rtspUri) {
         existingStream.running = null;
         rtspUri = stream.rtspUri;
         //broadcast existing stream is starting
-        socketServer.clients.forEach((client) => {
-          client.send(JSON.stringify(getStrippedStreams()))
-        })
+        broadcastStreamUpdates();
         break;
       }
     }
@@ -81,10 +92,13 @@ async function startStream(alias, rtspUri) {
           running: true
         }
         if (!existingStream) {
+
           streams.push(resultObj);
         } else {
           existingStream.running = true;
         }
+        storage.setItem('persistedStreams', streams);
+
         resolveTop(resultObj);
       }
     })
@@ -165,6 +179,8 @@ function stopStream(alias, remove) {
 
     if (remove) {
       streams.splice(index, 1);
+      storage.setItem('persistedStreams', streams);
+
     }
 
   }
@@ -186,6 +202,23 @@ function getStrippedStreams() {
   return streamsClone
 }
 
+async function loadSavedStream() {
+  await storage.init( /* options ... */);
+  persistedStreams = await storage.getItem('persistedStreams');
+  if (persistedStreams !== null && persistedStreams.length > 0) {
+    persistedStreams.forEach(stream => {
+      stream.running = false;
+      streams.push(stream);
+      startStream(stream.alias).then(()=>{
+        broadcastStreamUpdates();
+      });
+    })
+  }
+}
+
+loadSavedStream();
+
+
 // start();
 
 //endpoints
@@ -203,17 +236,14 @@ app.post('/start', async (request, response) => {
   delete streamClone.process;
   response.json(streamClone);
   //
-  socketServer.clients.forEach((client) => {
-    client.send(JSON.stringify(getStrippedStreams()))
-  })
+  broadcastStreamUpdates();
+  
 });
 
 app.post('/stop', async (request, response) => {
   //params for body: alias, rtsp
   stopStream(request.body.alias, request.body.remove)
-  socketServer.clients.forEach((client) => {
-    client.send(JSON.stringify(getStrippedStreams()))
-  })
+  broadcastStreamUpdates();
 
   // await startStream(request.body.alias, request.body.rtspUri);
   response.json({});
@@ -249,9 +279,7 @@ app.use(function (err, req, res, next) {
 const socketServer = new ws.Server({ port: 3030 });
 
 socketServer.on('connection', (socketClient) => {
-  socketServer.clients.forEach((client) => {
-    client.send(JSON.stringify(getStrippedStreams()))
-  })
+  broadcastStreamUpdates();
   socketClient.on('close', (socketClient) => {
     // console.log('closed');
     // console.log('Number of clients: ', socketServer.clients.size);

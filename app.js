@@ -46,18 +46,18 @@ async function startStream(alias, rtspUri) {
     }
     var readyPromises = [];
     var streamUri;
-    spawn('mkdir', ["./public/streams/"]);
+    spawn('mkdir', ["public/streams/"]);
 
     //clear and set file watch
     // aliasArr.forEach(alias => {
-    spawn('rm', ["-rf", "./public/streams/" + alias]);
-    spawn('mkdir', ["./public/streams/" + alias]);
+    spawn('rm', ["-rf", "public/streams/" + alias]);
+    spawn('mkdir', ["public/streams/" + alias]);
     // console.log('x')
     //watch
     var p = new Promise((resolve, reject) => {
-      var c = chokidar.watch('./public/streams/' + alias + '/stream0.ts').on('add', (event) => {
+      var c = chokidar.watch('public/streams/' + alias + '/stream0.ts').on('add', (event) => {
         resolve();
-        c.unwatch('./public/streams/' + alias + '/stream0.ts');
+        c.unwatch('public/streams/' + alias + '/stream0.ts');
         streamUri = 'streams/' + alias + '/stream.M3U8';
       });
     })

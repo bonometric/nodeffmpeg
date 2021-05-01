@@ -57,7 +57,9 @@ async function startStream(alias, rtspUri) {
     var p = new Promise((resolve, reject) => {
       var c = chokidar.watch('public/streams/' + alias + '/stream0.ts').on('add', (event) => {
         resolve();
+        console.log('removing file watcher for '+alias)
         c.unwatch('public/streams/' + alias + '/stream0.ts');
+        
         streamUri = 'streams/' + alias + '/stream.M3U8';
       });
     })

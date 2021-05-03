@@ -50,6 +50,7 @@ async function startStream(alias, rtspUri) {
 
   return new Promise((resolveTop, reject) => {
     //find stream if exists
+    var streamContext;
     var existingStream;
     for (let i = 0; i < streams.length; i++) {
       const stream = streams[i];
@@ -58,6 +59,7 @@ async function startStream(alias, rtspUri) {
         existingStream.running = null;
         rtspUri = stream.rtspUri;
         //broadcast existing stream is starting
+        streamContext = existingStream;
         broadcastStreamUpdates();
         break;
       }
@@ -92,8 +94,8 @@ async function startStream(alias, rtspUri) {
           running: true
         }
         if (!existingStream) {
-
-          streams.push(resultObj);
+          streamContext = resultObj;
+          streams.push(streamContext);          
         } else {
           existingStream.process = proc;
           existingStream.running = true;
@@ -152,6 +154,13 @@ async function startStream(alias, rtspUri) {
 
     proc.stderr.on('close', function (data) {
       // console.log(alias, ' closed');
+      if(streamContext){
+        //mark data
+        streamContext.running = false;
+        //cleanup
+        spawn('rm', ["-rf", "public/streams/" + streamContext.alias]);
+        broadcastStreamUpdates();
+      }
     })
 
   })

@@ -206,7 +206,7 @@ function getStrippedStreams() {
 async function loadSavedStream() {
   await storage.init( /* options ... */);
   persistedStreams = await storage.getItem('persistedStreams');
-  if (persistedStreams !== null && persistedStreams.length > 0) {
+  if (persistedStreams && persistedStreams.length > 0) {
     persistedStreams.forEach(stream => {
       stream.running = false;
       streams.push(stream);

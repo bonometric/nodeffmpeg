@@ -1,6 +1,5 @@
-const chokidar = require('chokidar');
-const Gaze = require('gaze').Gaze;
 const storage = require('node-persist');
+const fs = require('fs')
 
 const bodyParser = require("body-parser");
 const ws = require('ws');
@@ -29,27 +28,40 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-
+  
 var router = express.Router();
-
+ 
 var streams = [];
 var persistedStreams = [];
 
-async function broadcastStreamUpdates(){
-  socketServer.clients.forEach((client) => {
-    client.send(JSON.stringify(getStrippedStreams()))
-  })
+function createStreamObject(data) {
+  return {
+    alias: data.alias,
+    folderName: data.alias.replace(/[/\\?'`%*:|"<> ]/g, '-'),
+    process: data.process || null,
+    rtspUri: data.rtspUri,
+    streamUri: data.streamUri || null,
+    running: data.running || null,
+    created: Date.now(),
+    modified: Date.now()
+  }
 }
 
-async function removeStream(stream) {
-
-  await storage.setItem('persistedStreams', streams);
+async function broadcastStreamUpdates() {
+  socketServer.clients.forEach((client) => {
+    var payload = {
+      type:"stream-update",
+      data:getStrippedStreams()
+    }
+    client.send(JSON.stringify(payload))
+  })
 }
 
 async function startStream(alias, rtspUri) {
 
   return new Promise((resolveTop, reject) => {
     //find stream if exists
+    var streamUri;
     var streamContext;
     var existingStream;
     for (let i = 0; i < streams.length; i++) {
@@ -64,49 +76,51 @@ async function startStream(alias, rtspUri) {
         break;
       }
     }
+    streamContext = existingStream || createStreamObject({ alias: alias, rtspUri: rtspUri });
     var readyPromises = [];
-    var streamUri;
     spawn('mkdir', ["public/streams/"]);
 
     //clear and set file watch
     // aliasArr.forEach(alias => {
-    spawn('rm', ["-rf", "public/streams/" + alias]);
-    spawn('mkdir', ["public/streams/" + alias]);
+    spawn('rm', ["-rf", "public/streams/" + streamContext.folderName]);
+    spawn('mkdir', ["public/streams/" + streamContext.folderName]);
     // console.log('x')
 
     //watch
-    console.log('creating file watcher for ' + alias)
+    console.log('creating file watcher for ' + streamContext.folderName)
+    var targetStreamUri = 'streams/' + streamContext.folderName + '/stream.M3U8';
+    
 
-    const gaze = new Gaze('**/*');
-    gaze.on('added', path => {
-      if (path.includes('streams/' + alias + '/stream.M3U8')) {
-        console.log('stream file created!')
-        gaze.close();
-        //
-        streamUri = 'streams/' + alias + '/stream.M3U8';
-        //
-        console.log('stream ready!')
-        var resultObj = {
-          process: proc,
-          alias: alias,
-          rtspUri: rtspUri,
-          streamUri: streamUri,
-          running: true
+    var watchInterval = setInterval(() => {
+      try {
+        if (fs.existsSync("public/streams/" + streamContext.folderName+'/stream.M3U8')) {
+          //file exists
+          console.log('stream file created!')
+          //
+          streamContext.streamUri = targetStreamUri;
+          streamContext.process = proc;
+          streamContext.running = true;
+          //
+          console.log('stream ready!')
+  
+          if (!existingStream) {
+            //add to list
+            streams.push(streamContext);
+          } else {
+            //update modified time
+            streamContext.modified = Date.now();
+          }
+  
+          storage.setItem('persistedStreams', streams);
+          resolveTop(streamContext);
+          clearInterval(watchInterval);
         }
-        if (!existingStream) {
-          streamContext = resultObj;
-          streams.push(streamContext);          
-        } else {
-          existingStream.process = proc;
-          existingStream.running = true;
-        }
-        storage.setItem('persistedStreams', streams);
-
-        resolveTop(resultObj);
+      } catch(err) {
+        console.error('stream not found')
       }
-    })
-
-
+      
+    }, 300);
+    
 
     //ffmpeg
     var cmd = 'ffmpeg';
@@ -121,7 +135,7 @@ async function startStream(alias, rtspUri) {
     // const alias = aliasArr[i]
     var i = 0;
     videoSourceArguments.push('-i');
-    videoSourceArguments.push(rtspUri);
+    videoSourceArguments.push(streamContext.rtspUri);
     //
     var streamOption = [
       "-map",
@@ -132,7 +146,7 @@ async function startStream(alias, rtspUri) {
       "-acodec", "copy",
       "-hls_flags", "delete_segments",
       "-hls_wrap", "100", "-flags", "-global_header",
-      "./public/streams/" + alias + "/stream.M3U8"
+      "./public/streams/" + streamContext.folderName + "/stream.M3U8"
     ];
     streamOptions = [...streamOptions, ...streamOption];
     // }
@@ -154,13 +168,11 @@ async function startStream(alias, rtspUri) {
 
     proc.stderr.on('close', function (data) {
       // console.log(alias, ' closed');
-      if(streamContext){
-        //mark data
-        streamContext.running = false;
-        //cleanup
-        spawn('rm', ["-rf", "public/streams/" + streamContext.alias]);
-        broadcastStreamUpdates();
-      }
+      //mark data
+      streamContext.running = false;
+      //cleanup
+      spawn('rm', ["-rf", streamContext.streamUri]);
+      broadcastStreamUpdates();
     })
 
   })
@@ -168,32 +180,31 @@ async function startStream(alias, rtspUri) {
 }
 
 function stopStream(alias, remove) {
-  spawn('rm', ["-rf", "public/streams/" + alias]);
 
-  var process;
-  var index;
   //find stream
+  var existingStream;
   for (let i = 0; i < streams.length; i++) {
     const stream = streams[i];
     if (stream.alias == alias) {
-      process = stream.process;
-      stream.running = false;
-      index = i;
+      existingStream = stream;
       break;
     }
   }
-  if (process) {
-    //stop ffmpeg
-    process.kill();
-    //clear folders
-
-    if (remove) {
-      streams.splice(index, 1);
-      storage.setItem('persistedStreams', streams);
-
+  if (existingStream) {
+    existingStream.running = false;
+    if (existingStream.process) {
+      existingStream.process.kill();
+      if (remove) {
+        streams.splice(streams.indexOf(existingStream), 1);
+        //update local db
+        storage.setItem('persistedStreams', streams);
+      }
     }
-
   }
+
+  //remove folder
+  console.log('removing ', existingStream.folderName)
+  spawn('rm', ["-rf", "public/streams/" + existingStream.folderName]);
 
 }
 
@@ -219,7 +230,7 @@ async function loadSavedStream() {
     persistedStreams.forEach(stream => {
       stream.running = false;
       streams.push(stream);
-      startStream(stream.alias).then(()=>{
+      startStream(stream.alias).then(() => {
         broadcastStreamUpdates();
       });
     })
@@ -247,7 +258,7 @@ app.post('/start', async (request, response) => {
   response.json(streamClone);
   //
   broadcastStreamUpdates();
-  
+
 });
 
 app.post('/stop', async (request, response) => {

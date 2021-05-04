@@ -28,9 +28,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-  
+
 var router = express.Router();
- 
+
 var streams = [];
 var persistedStreams = [];
 
@@ -50,8 +50,8 @@ function createStreamObject(data) {
 async function broadcastStreamUpdates() {
   socketServer.clients.forEach((client) => {
     var payload = {
-      type:"stream-update",
-      data:getStrippedStreams()
+      type: "stream-update",
+      data: getStrippedStreams()
     }
     client.send(JSON.stringify(payload))
   })
@@ -89,38 +89,43 @@ async function startStream(alias, rtspUri) {
     //watch
     console.log('creating file watcher for ' + streamContext.folderName)
     var targetStreamUri = 'streams/' + streamContext.folderName + '/stream.M3U8';
-    
+
 
     var watchInterval = setInterval(() => {
-      try {
-        if (fs.existsSync("public/streams/" + streamContext.folderName+'/stream.M3U8')) {
-          //file exists
-          console.log('stream file created!')
-          //
-          streamContext.streamUri = targetStreamUri;
-          streamContext.process = proc;
-          streamContext.running = true;
-          //
-          console.log('stream ready!')
-  
-          if (!existingStream) {
-            //add to list
-            streams.push(streamContext);
-          } else {
-            //update modified time
-            streamContext.modified = Date.now();
-          }
-  
-          storage.setItem('persistedStreams', streams);
-          resolveTop(streamContext);
-          clearInterval(watchInterval);
+
+
+      fs.access("public/streams/" + streamContext.folderName + '/stream.M3U8', fs.F_OK, (err) => {
+        if (err) {
+          // console.error(err)
+          return
         }
-      } catch(err) {
-        console.error('stream not found')
-      }
-      
+
+        //file exists
+        streamContext.streamUri = targetStreamUri;
+        streamContext.process = proc;
+        streamContext.running = true;
+        //
+        console.log('stream ready!')
+
+        if (!existingStream) {
+          //add to list
+          streams.push(streamContext);
+        } else {
+          //update modified time
+          streamContext.modified = Date.now();
+        }
+
+        storage.setItem('persistedStreams', streams);
+        resolveTop(streamContext);
+        clearInterval(watchInterval);
+      })
+
+
+
+     
+
     }, 300);
-    
+
 
     //ffmpeg
     var cmd = 'ffmpeg';

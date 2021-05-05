@@ -94,35 +94,35 @@ async function startStream(alias, rtspUri) {
     var watchInterval = setInterval(() => {
 
 
-      fs.access("public/streams/" + streamContext.folderName + '/stream.M3U8', fs.F_OK, (err) => {
-        if (err) {
-          // console.error(err)
-          return
-        }
+    fs.access("public/streams/" + streamContext.folderName + '/stream.M3U8', fs.F_OK, (err) => {
+      if (err) {
+        // console.error(err)
+        return
+      }
 
-        //file exists
-        streamContext.streamUri = targetStreamUri;
-        streamContext.process = proc;
-        streamContext.running = true;
-        //
-        console.log('stream ready!')
+      //file exists
+      streamContext.streamUri = targetStreamUri;
+      streamContext.process = proc;
+      streamContext.running = true;
+      //
+      console.log('stream ready!')
 
-        if (!existingStream) {
-          //add to list
-          streams.push(streamContext);
-        } else {
-          //update modified time
-          streamContext.modified = Date.now();
-        }
+      if (!existingStream) {
+        //add to list
+        streams.push(streamContext);
+      } else {
+        //update modified time
+        streamContext.modified = Date.now();
+      }
 
-        storage.setItem('persistedStreams', streams);
-        resolveTop(streamContext);
-        clearInterval(watchInterval);
-      })
+      storage.setItem('persistedStreams', streams);
+      resolveTop(streamContext);
+      clearInterval(watchInterval);
+    })
 
 
 
-     
+
 
     }, 300);
 

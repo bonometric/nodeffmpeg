@@ -148,9 +148,13 @@ async function startStream(alias, rtspUri) {
       "-fflags", "flush_packets", "-max_delay", "2",
       "-copyts",
       "-vcodec", "copy",
+      "-movflags", "frag_keyframe+empty_moov",      
       "-acodec", "copy",
-      "-hls_flags", "delete_segments",
-      "-hls_wrap", "100", "-flags", "-global_header",
+      "-hls_flags", "delete_segments+append_list",            
+      "-segment_list_flags","live",
+      "-segment_time", "1",
+      "-segment_list_size","3",
+      "-flags", "-global_header",
       "./public/streams/" + streamContext.folderName + "/stream.M3U8"
     ];
     streamOptions = [...streamOptions, ...streamOption];
@@ -168,7 +172,7 @@ async function startStream(alias, rtspUri) {
 
     proc.stderr.setEncoding("utf8")
     proc.stderr.on('data', function (data) {
-      // console.log(data);      
+      console.log(data);      
     })
 
     proc.stderr.on('close', function (data) {

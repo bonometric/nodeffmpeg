@@ -3,6 +3,7 @@ node_modules
 /dist
 public/streams
 .node-persist
+persist**
 
 # local env files
 .env.local

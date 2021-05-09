@@ -43,7 +43,9 @@ function createStreamObject(data) {
     streamUri: data.streamUri || null,
     running: data.running || null,
     created: Date.now(),
-    modified: Date.now()
+    modified: Date.now(),
+    stopping:false,
+    recoverTryCount:0
   }
 }
 
@@ -81,15 +83,12 @@ async function startStream(alias, rtspUri) {
     spawn('mkdir', ["public/streams/"]);
 
     //clear and set file watch
-    // aliasArr.forEach(alias => {
     spawn('rm', ["-rf", "public/streams/" + streamContext.folderName]);
     spawn('mkdir', ["public/streams/" + streamContext.folderName]);
-    // console.log('x')
 
     //watch
     console.log('creating file watcher for ' + streamContext.folderName)
     var targetStreamUri = 'streams/' + streamContext.folderName + '/stream.M3U8';
-
 
     var watchInterval = setInterval(() => {
 
@@ -117,12 +116,10 @@ async function startStream(alias, rtspUri) {
 
       storage.setItem('persistedStreams', streams);
       resolveTop(streamContext);
+      streamContext.stopping = false;
+      streamContext.recoverTryCount = 0;      
       clearInterval(watchInterval);
     })
-
-
-
-
 
     }, 300);
 
@@ -172,16 +169,31 @@ async function startStream(alias, rtspUri) {
 
     proc.stderr.setEncoding("utf8")
     proc.stderr.on('data', function (data) {
-      console.log(data);      
+      // console.log(data);      
     })
 
-    proc.stderr.on('close', function (data) {
-      // console.log(alias, ' closed');
+    proc.stderr.on('close', (data)=>{
       //mark data
       streamContext.running = false;
       //cleanup
       spawn('rm', ["-rf", streamContext.streamUri]);
       broadcastStreamUpdates();
+      //try to recover?
+      if(streamContext.stopping){
+        streamContext.stopping = false
+      }else{
+        //check against max retries
+        if(streamContext.recoverTryCount<3){
+          streamContext.recoverTryCount++;
+          //wait  before recovering
+          setTimeout(()=>{
+            console.log('auto recovering, attempt ', streamContext.recoverTryCount);
+            startStream(streamContext.alias).then(()=>{
+              broadcastStreamUpdates();
+            })
+          },500)
+        }
+      }
     })
 
   })
@@ -201,6 +213,7 @@ function stopStream(alias, remove) {
   }
   if (existingStream) {
     existingStream.running = false;
+    existingStream.stopping = true;
     if (existingStream.process) {
       existingStream.process.kill();
       if (remove) {

@@ -44,8 +44,8 @@ function createStreamObject(data) {
     running: data.running || null,
     created: Date.now(),
     modified: Date.now(),
-    stopping:false,
-    recoverTryCount:0
+    stopping: false,
+    recoverTryCount: 0
   }
 }
 
@@ -93,33 +93,33 @@ async function startStream(alias, rtspUri) {
     var watchInterval = setInterval(() => {
 
 
-    fs.access("public/streams/" + streamContext.folderName + '/stream.M3U8', fs.F_OK, (err) => {
-      if (err) {
-        // console.error(err)
-        return
-      }
+      fs.access("public/streams/" + streamContext.folderName + '/stream.M3U8', fs.F_OK, (err) => {
+        if (err) {
+          // console.error(err)
+          return
+        }
 
-      //file exists
-      streamContext.streamUri = targetStreamUri;
-      streamContext.process = proc;
-      streamContext.running = true;
-      //
-      console.log('stream ready!')
+        //file exists
+        streamContext.streamUri = targetStreamUri;
+        streamContext.process = proc;
+        streamContext.running = true;
+        //
+        console.log('stream ready!')
 
-      if (!existingStream) {
-        //add to list
-        streams.push(streamContext);
-      } else {
-        //update modified time
-        streamContext.modified = Date.now();
-      }
+        if (!existingStream) {
+          //add to list
+          streams.push(streamContext);
+        } else {
+          //update modified time
+          streamContext.modified = Date.now();
+        }
 
-      storage.setItem('persistedStreams', streams);
-      resolveTop(streamContext);
-      streamContext.stopping = false;
-      streamContext.recoverTryCount = 0;      
-      clearInterval(watchInterval);
-    })
+        storage.setItem('persistedStreams', streams);
+        resolveTop(streamContext);
+        streamContext.stopping = false;
+        streamContext.recoverTryCount = 0;
+        clearInterval(watchInterval);
+      })
 
     }, 300);
 
@@ -142,16 +142,13 @@ async function startStream(alias, rtspUri) {
     var streamOption = [
       "-map",
       i,
-      "-fflags", "flush_packets", "-max_delay", "2",
-      "-copyts",
+      "-hls_flags", "independent_segments",
+      "-hls_time", "6",
+      "-hls_segment_type", "mpegts",
       "-vcodec", "copy",
-      "-movflags", "frag_keyframe+empty_moov",      
       "-acodec", "copy",
-      "-hls_flags", "delete_segments+append_list",            
-      "-segment_list_flags","live",
-      "-segment_time", "1",
-      "-segment_list_size","3",
-      "-flags", "-global_header",
+      "-hls_flags", "delete_segments+append_list",
+      "-segment_list_size", "3",
       "./public/streams/" + streamContext.folderName + "/stream.M3U8"
     ];
     streamOptions = [...streamOptions, ...streamOption];
@@ -172,26 +169,28 @@ async function startStream(alias, rtspUri) {
       // console.log(data);      
     })
 
-    proc.stderr.on('close', (data)=>{
+    proc.stderr.on('close', (data) => {
       //mark data
       streamContext.running = false;
       //cleanup
       spawn('rm', ["-rf", streamContext.streamUri]);
       broadcastStreamUpdates();
       //try to recover?
-      if(streamContext.stopping){
-        streamContext.stopping = false
-      }else{
-        //check against max retries
-        if(streamContext.recoverTryCount<3){
-          streamContext.recoverTryCount++;
-          //wait  before recovering
-          setTimeout(()=>{
-            console.log('auto recovering, attempt ', streamContext.recoverTryCount);
-            startStream(streamContext.alias).then(()=>{
-              broadcastStreamUpdates();
-            })
-          },500)
+      if (false) {
+        if (streamContext.stopping) {
+          streamContext.stopping = false
+        } else {
+          //check against max retries
+          if (streamContext.recoverTryCount < 3) {
+            streamContext.recoverTryCount++;
+            //wait  before recovering
+            setTimeout(() => {
+              console.log('auto recovering, attempt ', streamContext.recoverTryCount);
+              startStream(streamContext.alias).then(() => {
+                broadcastStreamUpdates();
+              })
+            }, 500)
+          }
         }
       }
     })

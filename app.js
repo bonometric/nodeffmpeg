@@ -142,13 +142,15 @@ async function startStream(alias, rtspUri) {
     var streamOption = [
       "-map",
       i,
-      "-hls_flags", "independent_segments",
-      "-hls_time", "6",
-      "-hls_segment_type", "mpegts",
-      "-vcodec", "copy",
-      "-acodec", "copy",
-      "-hls_flags", "delete_segments+append_list",
-      "-segment_list_size", "3",
+      // "-g 15",
+      "-hls_allow_cache", "0",//don't cache      
+      "-hls_delete_threshold", "3",
+      "-hls_time", "1",//eachs segment is 1s
+      "-hls_flags", "delete_segments+split_by_time",      //delete old segment, 
+      "-hls_list_size", "5", //segments to keep
+      "-hls_segment_type", "mpegts", //segment format
+      "-vcodec", "copy",//copy don't re-encode
+      "-acodec", "copy",//copy don't re-encode
       "./public/streams/" + streamContext.folderName + "/stream.M3U8"
     ];
     streamOptions = [...streamOptions, ...streamOption];
@@ -213,13 +215,13 @@ function stopStream(alias, remove) {
   if (existingStream) {
     existingStream.running = false;
     existingStream.stopping = true;
-    if (existingStream.process) {
+    if (remove) {
+      streams.splice(streams.indexOf(existingStream), 1);
+      //update local db
+      storage.setItem('persistedStreams', streams);
+    }
+    if (existingStream.process&&existingStream.process.kill) {
       existingStream.process.kill();
-      if (remove) {
-        streams.splice(streams.indexOf(existingStream), 1);
-        //update local db
-        storage.setItem('persistedStreams', streams);
-      }
     }
   }
 

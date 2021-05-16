@@ -44,8 +44,8 @@ function createStreamObject(data) {
     running: data.running || null,
     created: Date.now(),
     modified: Date.now(),
-    stopping: false,
-    recoverTryCount: 0
+    status: 3,//0: crashed, 1: stopping, 2:stopped, 3:starting, 4:started/running "
+    stopping: false
   }
 }
 
@@ -70,6 +70,7 @@ async function startStream(alias, rtspUri) {
       const stream = streams[i];
       if (stream.alias == alias) {
         existingStream = stream;
+        existingStream.status = 3; //starting
         existingStream.running = null;
         rtspUri = stream.rtspUri;
         //broadcast existing stream is starting
@@ -101,7 +102,6 @@ async function startStream(alias, rtspUri) {
 
         //file exists
         streamContext.streamUri = targetStreamUri;
-        streamContext.process = proc;
         streamContext.running = true;
         //
         console.log('stream ready!')
@@ -116,6 +116,7 @@ async function startStream(alias, rtspUri) {
 
         storage.setItem('persistedStreams', streams);
         resolveTop(streamContext);
+        streamContext.status = 4;
         streamContext.stopping = false;
         streamContext.recoverTryCount = 0;
         clearInterval(watchInterval);
@@ -127,6 +128,7 @@ async function startStream(alias, rtspUri) {
     //ffmpeg
     var cmd = 'ffmpeg';
     var args = [
+      "-nostdin", "-y",
       "-fflags", "nobuffer",
     ]
     var videoSourceArguments = [];
@@ -160,46 +162,55 @@ async function startStream(alias, rtspUri) {
     // console.log(args)
     //spawn the process
     var proc = spawn(cmd, args);
-    //output
-    proc.stdout.setEncoding("utf8")
-    proc.stdout.on('data', function (data) {
-      // console.log(data);
-    });
-
-    proc.stderr.setEncoding("utf8")
-    proc.stderr.on('data', function (data) {
-      // console.log(data);      
-    })
-
-    proc.stderr.on('close', (data) => {
-      //mark data
-      streamContext.running = false;
-      //cleanup
-      spawn('rm', ["-rf", streamContext.streamUri]);
-      broadcastStreamUpdates();
-      //try to recover?
-      if (false) {
-        if (streamContext.stopping) {
-          streamContext.stopping = false
-        } else {
-          //check against max retries
-          if (streamContext.recoverTryCount < 3) {
-            streamContext.recoverTryCount++;
-            //wait  before recovering
-            setTimeout(() => {
-              console.log('auto recovering, attempt ', streamContext.recoverTryCount);
-              startStream(streamContext.alias).then(() => {
-                broadcastStreamUpdates();
-              })
-            }, 500)
-          }
-        }
-      }
-    })
-
+    streamContext.process = proc;
+    setEventsForStreamContext(streamContext);
+    broadcastStreamUpdates();
   })
 
 }
+
+function setEventsForStreamContext(streamContext) {
+  var proc = streamContext.process;
+  //output
+  proc.stdout.setEncoding("utf8")
+  proc.stdout.on('data', function (data) {
+    // console.log(data);
+  });
+
+  proc.stderr.setEncoding("utf8")
+  proc.stderr.on('data', function (data) {
+    // console.log(data);      
+  })
+
+  proc.stderr.on('close', (data) => {
+    console.log('ffmpeg killed...')
+    //mark data
+    streamContext.running = false;
+    //cleanup
+    spawn('rm', ["-rf", streamContext.streamUri]);
+    //try to recover?
+    if (streamContext.status == 1) { //stopping?
+      streamContext.status = 2; //stopped
+      console.log('stream closed')
+    } else {
+      streamContext.status = 0 //crashed
+      console.log('recovering...')
+      //check against max retries
+      setTimeout(() => {
+        console.log('auto recovering...');
+        startStream(streamContext.alias).then(() => {
+          broadcastStreamUpdates();
+        })
+      }, 1000 * 60 * 2)
+    }
+
+    broadcastStreamUpdates();
+
+
+
+  })
+}
+
 
 function stopStream(alias, remove) {
 
@@ -213,6 +224,7 @@ function stopStream(alias, remove) {
     }
   }
   if (existingStream) {
+    existingStream.status = 1;
     existingStream.running = false;
     existingStream.stopping = true;
     if (remove) {
@@ -220,7 +232,7 @@ function stopStream(alias, remove) {
       //update local db
       storage.setItem('persistedStreams', streams);
     }
-    if (existingStream.process&&existingStream.process.kill) {
+    if (existingStream.process && existingStream.process.kill) {
       existingStream.process.kill();
     }
   }
@@ -228,6 +240,10 @@ function stopStream(alias, remove) {
   //remove folder
   console.log('removing ', existingStream.folderName)
   spawn('rm', ["-rf", "public/streams/" + existingStream.folderName]);
+
+  
+
+
 
 }
 
@@ -288,7 +304,6 @@ app.post('/stop', async (request, response) => {
   //params for body: alias, rtsp
   stopStream(request.body.alias, request.body.remove)
   broadcastStreamUpdates();
-
   // await startStream(request.body.alias, request.body.rtspUri);
   response.json({});
 });

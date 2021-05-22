@@ -14,7 +14,6 @@ var spawn = require('child_process').spawn;
 var history = require('connect-history-api-fallback');
 
 var app = express();
-app.use(history());
 app.use(cors());
 app.options('*', cors());
 
@@ -80,11 +79,12 @@ async function startStream(alias, rtspUri) {
     //find stream if exists
     var streamUri;
     var streamContext;
-    var existingStream;
+    var existingStream = false;
 
     streamContext = getStream(alias);
 
     if (streamContext) {
+      existingStream = true;
       streamContext.status = 3;
       rtspUri = streamContext.rtspUri;
       broadcastStreamUpdates();
@@ -276,6 +276,7 @@ function getStrippedStreams() {
 }
 
 async function loadSavedStream() {
+  streams = [];
   await storage.init( /* options ... */);
   persistedStreams = await storage.getItem('persistedStreams');
   if (persistedStreams && persistedStreams.length > 0) {
@@ -297,6 +298,7 @@ loadSavedStream();
 //endpoints
 app.get('/list', (request, response) => {
   //clone and strip rtspUri since it contains the auth. also strip process.
+  console.log(getStrippedStreams())
   response.json(getStrippedStreams());
 });
 
@@ -357,5 +359,8 @@ socketServer.on('connection', (socketClient) => {
     // console.log('Number of clients: ', socketServer.clients.size);
   });
 });
+
+app.use(history());
+
 
 module.exports = app;

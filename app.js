@@ -11,8 +11,10 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var spawn = require('child_process').spawn;
+var history = require('connect-history-api-fallback');
 
 var app = express();
+app.use(history());
 app.use(cors());
 app.options('*', cors());
 

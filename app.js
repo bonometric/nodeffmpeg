@@ -59,6 +59,19 @@ async function broadcastStreamUpdates() {
   })
 }
 
+function getStream(alias) {
+  var streamContext = null;
+  for (let i = 0; i < streams.length; i++) {
+    const stream = streams[i];
+    if (stream.alias == alias) {
+      //broadcast existing stream is starting
+      streamContext = stream;
+      break;
+    }
+  }
+  return streamContext;
+}
+
 async function startStream(alias, rtspUri) {
 
   return new Promise((resolveTop, reject) => {
@@ -66,20 +79,16 @@ async function startStream(alias, rtspUri) {
     var streamUri;
     var streamContext;
     var existingStream;
-    for (let i = 0; i < streams.length; i++) {
-      const stream = streams[i];
-      if (stream.alias == alias) {
-        existingStream = stream;
-        existingStream.status = 3; //starting
-        existingStream.running = null;
-        rtspUri = stream.rtspUri;
-        //broadcast existing stream is starting
-        streamContext = existingStream;
-        broadcastStreamUpdates();
-        break;
-      }
+
+    streamContext = getStream(alias);
+
+    if (streamContext) {
+      streamContext.status = 3;
+      rtspUri = streamContext.rtspUri;
+      broadcastStreamUpdates();
+    } else {
+      streamContext = createStreamObject({ alias: alias, rtspUri: rtspUri });
     }
-    streamContext = existingStream || createStreamObject({ alias: alias, rtspUri: rtspUri });
     var readyPromises = [];
     spawn('mkdir', ["public/streams/"]);
 
@@ -198,9 +207,11 @@ function setEventsForStreamContext(streamContext) {
       //check against max retries
       setTimeout(() => {
         console.log('auto recovering...');
-        startStream(streamContext.alias).then(() => {
-          broadcastStreamUpdates();
-        })
+        if (getStream(streamContext.alias)) {
+          startStream(streamContext.alias).then(() => {
+            broadcastStreamUpdates();
+          })
+        }
       }, 1000 * 60 * 2)
     }
 
@@ -241,7 +252,7 @@ function stopStream(alias, remove) {
   console.log('removing ', existingStream.folderName)
   spawn('rm', ["-rf", "public/streams/" + existingStream.folderName]);
 
-  
+
 
 
 

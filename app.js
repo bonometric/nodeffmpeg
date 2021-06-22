@@ -5,16 +5,20 @@ const bodyParser = require("body-parser");
 const ws = require('ws');
 
 var createError = require('http-errors');
-const cors = require('cors');
+
 var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var spawn = require('child_process').spawn;
 var history = require('connect-history-api-fallback');
+var cors = require('cors');
 
 var app = express();
+
+const staticFileMiddleware = express.static(path.join(__dirname + '/public'));
 app.use(cors());
+
 app.options('*', cors());
 
 // view engine setup
@@ -25,10 +29,9 @@ app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-
+// app.use(history());
 
 var router = express.Router();
 
@@ -323,6 +326,14 @@ app.post('/stop', async (request, response) => {
   response.json({});
 });
 
+app.use(staticFileMiddleware);
+app.use(history({
+  disableDotRule: true,
+  verbose: true
+}));
+
+app.use(staticFileMiddleware);
+
 spawn('rm', ["-rf", "public/streams"])
 
 
@@ -360,7 +371,7 @@ socketServer.on('connection', (socketClient) => {
   });
 });
 
-app.use(history());
+
 
 
 module.exports = app;

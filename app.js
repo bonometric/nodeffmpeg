@@ -176,6 +176,8 @@ async function startStream(alias, rtspUri) {
     // console.log(args)
     //spawn the process
     var proc = spawn(cmd, args);
+    // console.log(cmd)
+    // console.log(args)
     streamContext.process = proc;
     setEventsForStreamContext(streamContext);
     broadcastStreamUpdates();
@@ -217,7 +219,7 @@ function setEventsForStreamContext(streamContext) {
             broadcastStreamUpdates();
           })
         }
-      }, 1000 * 60 * 2)
+      }, 1000 * 5)
     }
 
     broadcastStreamUpdates();
@@ -301,7 +303,7 @@ loadSavedStream();
 //endpoints
 app.get('/list', (request, response) => {
   //clone and strip rtspUri since it contains the auth. also strip process.
-  console.log(getStrippedStreams())
+  // console.log(getStrippedStreams())
   response.json(getStrippedStreams());
 });
 
@@ -324,6 +326,24 @@ app.post('/stop', async (request, response) => {
   broadcastStreamUpdates();
   // await startStream(request.body.alias, request.body.rtspUri);
   response.json({});
+});
+
+app.post('/setPrimaryStreamAlias', async (request, response) => {
+  console.log('primary stream set to: ', request.body.alias)
+  //params for body: alias
+  storage.setItem('primaryStreamAlias', request.body.alias);
+  response.json({});
+});
+
+app.get('/getPrimaryStreamAlias', async (request, response) => {
+  //params for body: alias
+  var streams = getStrippedStreams();
+  var primaryStreamAlias = await storage.getItem('primaryStreamAlias');
+  if(!primaryStreamAlias && streams){
+    primaryStreamAlias = streams[0].alias
+  }
+  console.log(primaryStreamAlias)
+  response.json({primaryStreamAlias:primaryStreamAlias});
 });
 
 app.use(staticFileMiddleware);

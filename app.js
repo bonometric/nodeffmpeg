@@ -161,7 +161,7 @@ async function startStream(alias, rtspUri) {
       // "-g 15",
       "-hls_allow_cache", "0",//don't cache      
       "-hls_delete_threshold", "3",
-      "-hls_time", ".5",//eachs segment is 1s
+      "-hls_time", "1",//eachs segment is 1s
       "-hls_flags", "delete_segments+split_by_time",      //delete old segment, 
       "-hls_list_size", "10", //segments to keep
       "-hls_segment_type", "mpegts", //segment format

@@ -1,6 +1,5 @@
 const storage = require('node-persist');
 const fs = require('fs')
-
 const bodyParser = require("body-parser");
 const ws = require('ws');
 
@@ -17,9 +16,16 @@ var cors = require('cors');
 var app = express();
 
 const staticFileMiddleware = express.static(path.join(__dirname + '/public'));
-app.use(cors());
+app.use(cookieParser());
 
-app.options('*', cors());
+app.use(cors({
+  credentials: true, 
+  origin:['http://localhost:8080','http://flyingbits.ddns.net:13370/']
+}));
+
+var validPass = 'groovy!123';
+var validToken = 'loremipsum';
+// app.options('*', cors());
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -28,10 +34,10 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 // app.use(history());
+
 
 var router = express.Router();
 
@@ -302,13 +308,21 @@ loadSavedStream();
 
 //endpoints
 app.get('/list', (request, response) => {
+  if(request.cookies.token == validToken){
+    response.json(getStrippedStreams());
+  }else{
+    response.json({});
+  }
   //clone and strip rtspUri since it contains the auth. also strip process.
   // console.log(getStrippedStreams())
-  response.json(getStrippedStreams());
 });
 
 app.post('/start', async (request, response) => {
-  console.log(request.body)
+  console.log(request.cookies)
+  if(request.cookies.token != validToken){
+    response.json({});
+    return false;
+  }
   //params for body: alias, rtsp
   var stream = await startStream(request.body.alias, request.body.rtspUri);
   var streamClone = JSON.parse(JSON.stringify(stream));
@@ -336,15 +350,41 @@ app.post('/setPrimaryStreamAlias', async (request, response) => {
 });
 
 app.get('/getPrimaryStreamAlias', async (request, response) => {
+  /**
+   * TODO: handle if primary stream alias stream item is deleted, revert back to stream index 0
+   */
+
   //params for body: alias
   var streams = getStrippedStreams();
   var primaryStreamAlias = await storage.getItem('primaryStreamAlias');
   if(!primaryStreamAlias && streams){
-    primaryStreamAlias = streams[0].alias
+    primaryStreamAlias = streams[0]? streams[0].alias : null
   }
-  console.log(primaryStreamAlias)
+  // console.log(primaryStreamAlias)
   response.json({primaryStreamAlias:primaryStreamAlias});
 });
+
+app.post('/login', async (request, response) => {
+  // console.log('pass: ', request.body.pass)
+  if(request.body.pass == validPass){
+    response.json({success:true, token:'loremipsum'});
+  }else{
+    response.json({success:false, token:''});
+  }
+  //params for body: alias
+  // storage.setItem('primaryStreamAlias', request.body.alias);  
+});
+
+
+app.post('/validateToken', async (request, response) => {
+  // console.log('pass: ', request.body.pass)
+  if(request.cookies.token == validToken){
+    response.json({valid:true});
+  }else{
+    response.json({valid:false});
+  }  
+});
+
 
 app.use(staticFileMiddleware);
 app.use(history({

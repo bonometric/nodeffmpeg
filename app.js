@@ -25,7 +25,7 @@ app.use(cors({
 
 var validPass = 'groovy!123';
 var validToken = 'loremipsum';
-// app.options('*', cors());
+app.options('*', cors());
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

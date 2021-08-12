@@ -20,7 +20,7 @@ app.use(cookieParser());
 
 app.use(cors({
   credentials: true, 
-  origin:[ 'http://192.168.0.135:8000','http://orrys-r1.local:8000/','http://localhost:8080','http://flyingbits.ddns.net/','http://flyingbits.ddns.net:13375', 'http://192.168.0.110:8080']
+  origin:[ 'http://192.168.0.135:8000','http://orrys-r1.local:8000/','http://localhost:8080','http://flyingbits.ddns.net','http://flyingbits.ddns.net:13375', 'http://192.168.0.110:8080']
 }));
 
 var validPass = 'groovy!123';

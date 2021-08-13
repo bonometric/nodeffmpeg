@@ -19,8 +19,15 @@ const staticFileMiddleware = express.static(path.join(__dirname + '/public'));
 app.use(cookieParser());
 
 app.use(cors({
-  credentials: true, 
-  origin:[ 'http://192.168.0.135:8000','http://orrys-r1.local:8000/','http://localhost:8080','http://flyingbits.ddns.net','http://flyingbits.ddns.net:13375', 'http://192.168.0.110:8080']
+  credentials: true,
+  origin: [
+    'http://192.168.0.135:8080',
+    'http://192.168.0.110:8080',
+    'http://192.168.0.110:8000',
+    'http://localhost:8080',
+    'http://flyingbits.ddns.net',
+    'http://flyingbits.ddns.net:13375'
+  ]
 }));
 
 var validPass = 'groovy!123';
@@ -206,6 +213,7 @@ function setEventsForStreamContext(streamContext) {
 
   proc.stderr.on('close', (data) => {
     console.log('ffmpeg killed...')
+
     //mark data
     streamContext.running = false;
     //cleanup
@@ -234,7 +242,6 @@ function setEventsForStreamContext(streamContext) {
 
   })
 }
-
 
 function stopStream(alias, remove) {
 
@@ -307,20 +314,20 @@ loadSavedStream();
 // start();
 
 //endpoints
-app.get('/list', (request, response) => {
-  if(request.cookies.token == validToken){
+app.post('/list', (request, response) => {
+
+  if (request.body.token == validToken) {
     response.json(getStrippedStreams());
-  }else{
-    response.json({});
+  } else {
+    response.json([]);
   }
   //clone and strip rtspUri since it contains the auth. also strip process.
   // console.log(getStrippedStreams())
 });
 
 app.post('/start', async (request, response) => {
-  console.log(request.cookies)
-  if(request.cookies.token != validToken){
-    response.json({});
+  if (request.body.token != validToken) {
+    response.json({success:false});
     return false;
   }
   //params for body: alias, rtsp
@@ -335,11 +342,16 @@ app.post('/start', async (request, response) => {
 });
 
 app.post('/stop', async (request, response) => {
+  
+  if (request.body.token != validToken) {
+    response.json({success:false});
+    return false;
+  }
   //params for body: alias, rtsp
-  stopStream(request.body.alias, request.body.remove)
-  broadcastStreamUpdates();
-  // await startStream(request.body.alias, request.body.rtspUri);
-  response.json({});
+    stopStream(request.body.alias, request.body.remove)
+    broadcastStreamUpdates();
+    // await startStream(request.body.alias, request.body.rtspUri);
+    response.json({success:true});  
 });
 
 app.post('/setPrimaryStreamAlias', async (request, response) => {
@@ -357,34 +369,31 @@ app.get('/getPrimaryStreamAlias', async (request, response) => {
   //params for body: alias
   var streams = getStrippedStreams();
   var primaryStreamAlias = await storage.getItem('primaryStreamAlias');
-  if(!primaryStreamAlias && streams){
-    primaryStreamAlias = streams[0]? streams[0].alias : null
+  if (!primaryStreamAlias && streams) {
+    primaryStreamAlias = streams[0] ? streams[0].alias : null
   }
   // console.log(primaryStreamAlias)
-  response.json({primaryStreamAlias:primaryStreamAlias});
+  response.json({ primaryStreamAlias: primaryStreamAlias });
 });
 
 app.post('/login', async (request, response) => {
   // console.log('pass: ', request.body.pass)
-  if(request.body.pass == validPass){
-    response.json({success:true, token:'loremipsum'});
-  }else{
-    response.json({success:false, token:''});
+  if (request.body.pass == validPass) {
+    response.json({ success: true, token: 'loremipsum' });
+  } else {
+    response.json({ success: false, token: '' });
   }
   //params for body: alias
   // storage.setItem('primaryStreamAlias', request.body.alias);  
 });
 
-
 app.post('/validateToken', async (request, response) => {
-  // console.log('pass: ', request.body.pass)
-  if(request.cookies.token == validToken){
-    response.json({valid:true});
-  }else{
-    response.json({valid:false});
-  }  
+  if (request.body.token == validToken) {
+    response.json({ valid: true });
+  } else {
+    response.json({ valid: false });
+  }
 });
-
 
 app.use(staticFileMiddleware);
 app.use(history({

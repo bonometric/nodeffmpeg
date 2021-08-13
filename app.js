@@ -26,7 +26,8 @@ app.use(cors({
     'http://192.168.0.110:8000',
     'http://localhost:8080',
     'http://flyingbits.ddns.net',
-    'http://flyingbits.ddns.net:13375'
+    'http://flyingbits.ddns.net:13375',
+    'http://orrys-r1.local:8000'
   ]
 }));
 

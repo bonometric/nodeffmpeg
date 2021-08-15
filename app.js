@@ -32,7 +32,7 @@ app.use(cors({
 }));
 
 var validPass = 'groovy!123';
-var validToken = 'loremipsum';
+var validToken = 'dkaslda9031jklascs908';
 app.options('*', cors());
 
 // view engine setup
@@ -380,7 +380,7 @@ app.get('/getPrimaryStreamAlias', async (request, response) => {
 app.post('/login', async (request, response) => {
   // console.log('pass: ', request.body.pass)
   if (request.body.pass == validPass) {
-    response.json({ success: true, token: 'loremipsum' });
+    response.json({ success: true, token: validToken });
   } else {
     response.json({ success: false, token: '' });
   }

@@ -156,8 +156,7 @@ async function startStream(alias, rtspUri) {
     //ffmpeg
     var cmd = 'ffmpeg';
     var args = [
-      "-nostdin", "-y",
-      "-fflags", "nobuffer",
+      "-nostdin", "-y",     
     ]
     var videoSourceArguments = [];
     var streamOptions = [];
@@ -173,14 +172,14 @@ async function startStream(alias, rtspUri) {
       "-map",
       i,
       // "-g 15",
-      "-hls_allow_cache", "0",//don't cache      
-      "-hls_delete_threshold", "3",
       "-hls_time", "1",//eachs segment is 1s
-      "-hls_flags", "delete_segments+split_by_time",      //delete old segment, 
-      "-hls_list_size", "10", //segments to keep
-      "-hls_segment_type", "mpegts", //segment format
-      "-vcodec", "copy",//copy don't re-encode
-      "-acodec", "copy",//copy don't re-encode
+      "-hls_wrap","10",      
+      "-hls_list_size", "10", //segments to keep      
+      "-c:v", "copy",//copy don't re-encode
+      "-c:a", "copy",//copy don't re-encode
+      "-bufsize","1835k",
+      "-pix_fmt","yuv420p",
+      "-flags","-global_header",      
       "./public/streams/" + streamContext.folderName + "/stream.M3U8"
     ];
     streamOptions = [...streamOptions, ...streamOption];

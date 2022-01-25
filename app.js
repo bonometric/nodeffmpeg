@@ -16,6 +16,9 @@ var cors = require('cors');
 var app = express();
 
 const staticFileMiddleware = express.static(path.join(__dirname + '/public'));
+const nocache = require('nocache');
+app.use(nocache());
+
 app.use(cookieParser());
 
 app.use(cors({
